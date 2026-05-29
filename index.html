@@ -589,6 +589,9 @@
     <script type="text/javascript" src="https://s3.tradingview.com/tv.js"></script>
 
     <script>
+        // MANDATORY RULE: Always declare empty string for runtime replacement in Canvas environment
+        const apiKey = "";
+
         // Store configurations
         let terminalState = {
             apiKey: localStorage.getItem('gold_terminal_gemini_key') || '',
@@ -885,7 +888,7 @@
                 });
                 const data = await response.json();
                 if (data.ok) {
-                    showToast("Test Sent Successfully!", "សារតេស្តបានបាញ់ចូល Telegram របស់បងហើយ! សូមត្រួតពិនិត្យ។", "success");
+                    showToast("Test Sent Successfully!", "សារតេស្តបានបាញ់ចូល Telegram របស់បងហើយ! សូមត្រួតពិនិត្យ。");
                 } else {
                     showToast("Connection Fail", `Telegram Bot Error: ${data.description}`, "error");
                 }
@@ -1199,7 +1202,8 @@
         }
 
         async function callGeminiAPI(userPrompt, useGrounding = false) {
-            const apiKeyToUse = terminalState.apiKey || "";
+            // Fallback to Canvas environment's injected apiKey if localStorage settings key is empty!
+            const apiKeyToUse = terminalState.apiKey || apiKey || "";
             const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKeyToUse}`;
 
             const systemInstruction = `
