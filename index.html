@@ -443,7 +443,7 @@
                     <h2 class="text-sm font-bold tracking-wide text-amber-400 flex items-center gap-2">
                         <i class="fa-solid fa-brain-circuit animate-pulse"></i> AI INTELLIGENCE GATEWAY
                     </h2>
-                    <span class="text-[9px] bg-gold-500/10 text-gold-400 px-1.5 py-0.5 rounded border border-gold-500/25">GEMINI 3.1</span>
+                    <span class="text-[9px] bg-gold-500/10 text-gold-400 px-1.5 py-0.5 rounded border border-gold-500/25">GEMINI 2.5</span>
                 </div>
                 <p class="text-[11px] text-slate-400 mb-4 leading-relaxed">
                     វិភាគទិន្នន័យជាក់ស្តែង (Real-time Grounded Scrapes) ពី TradingView, Kitco, FXStreet, DailyFX, Investing, and Forex Factory សម្រាប់ទីផ្សារមាស។
@@ -888,7 +888,7 @@
                 });
                 const data = await response.json();
                 if (data.ok) {
-                    showToast("Test Sent Successfully!", "សារតេស្តបានបាញ់ចូល Telegram របស់បងហើយ! សូមត្រួតពិនិត្យ。");
+                    showToast("Test Sent Successfully!", "សារតេស្តបានបាញ់ចូល Telegram របស់បងហើយ! សូមត្រួតពិនិត្យ។");
                 } else {
                     showToast("Connection Fail", `Telegram Bot Error: ${data.description}`, "error");
                 }
@@ -1180,7 +1180,10 @@
                 output.innerHTML = `
                     <div class="text-rose-400 p-2 text-center">
                         <i class="fa-solid fa-triangle-exclamation text-xl block mb-1"></i>
-                        បរាជ័យក្នុងការវិភាគទិន្នន័យពិត។ សូមពិនិត្យមើលការកំណត់ API Key នៅក្នុង "API Settings"។
+                        បរាជ័យក្នុងការវិភាគទិន្នន័យពិត៖ <br>
+                        <span class="text-[10px] text-slate-400 font-mono">${error.message || error}</span>
+                        <br><br>
+                        <span class="text-[11px] text-amber-400">សូមប្រាកដថា API Key ដែលបងបានបញ្ចូលក្នុង Settings គឺត្រឹមត្រូវ និងមាន Credit/Quota គ្រប់គ្រាន់។</span>
                     </div>
                 `;
                 showToast("Execution Error", "Could not complete real-time scan.", "error");
@@ -1201,11 +1204,19 @@
             }
         }
 
+        // IMPROVED GEMINI API CALLER WITH PRODUCTION-READY MODEL & FAILSAFE BACKOFFS
         async function callGeminiAPI(userPrompt, useGrounding = false) {
             // Fallback to Canvas environment's injected apiKey if localStorage settings key is empty!
             const apiKeyToUse = terminalState.apiKey || apiKey || "";
-            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKeyToUse}`;
+            
+            if (!apiKeyToUse) {
+                throw new Error("API Key is missing. Please set it in Settings.");
+            }
 
+            // Using stable production Model ID instead of unstable preview versions
+            const primaryModel = "gemini-2.5-flash";
+            const backupModel = "gemini-1.5-flash";
+            
             const systemInstruction = `
                 You are an institutional-grade Gold Macro Analyst and Orderflow expert specializing in SMC (Smart Money Concepts), ICT (Inner Circle Trader) and Volume Delta analysis.
                 You provide deep analytical summaries of market factors affecting XAUUSD. 
@@ -1225,40 +1236,58 @@
                 payload.tools = [{ "google_search": {} }];
             }
 
-            // Exponential backoff fetch function
-            const fetchWithBackoff = async (url, options, retries = 3, delay = 1000) => {
+            // Exponential backoff fetch function with Model Fallback
+            const executeRequest = async (modelName, retries = 3, delay = 1000) => {
+                const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKeyToUse}`;
+                
                 try {
-                    const response = await fetch(url, options);
+                    const response = await fetch(apiUrl, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+                    
                     if (!response.ok) {
+                        const errorData = await response.json().catch(() => ({}));
+                        const errorMsg = errorData.error?.message || `HTTP Status ${response.status}`;
+                        
                         if (response.status === 429 && retries > 0) {
                             await new Promise(resolve => setTimeout(resolve, delay));
-                            return fetchWithBackoff(url, options, retries - 1, delay * 2);
+                            return executeRequest(modelName, retries - 1, delay * 2);
                         }
-                        throw new Error(`API returned status ${response.status}`);
+                        throw new Error(errorMsg);
                     }
                     return response;
                 } catch (err) {
                     if (retries > 0) {
                         await new Promise(resolve => setTimeout(resolve, delay));
-                        return fetchWithBackoff(url, options, retries - 1, delay * 2);
+                        return executeRequest(modelName, retries - 1, delay * 2);
                     }
                     throw err;
                 }
             };
 
-            const response = await fetchWithBackoff(apiUrl, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
-            });
-
-            const result = await response.json();
-            const candidate = result.candidates?.[0];
-            
-            if (candidate && candidate.content?.parts?.[0]?.text) {
-                return candidate.content.parts[0].text;
-            } else {
-                throw new Error("Invalid API response format");
+            try {
+                // Try executing with primary model (gemini-2.5-flash)
+                const response = await executeRequest(primaryModel);
+                const result = await response.json();
+                const text = result.candidates?.[0]?.content?.parts?.[0]?.text;
+                if (text) return text;
+                throw new Error("No response text found");
+            } catch (primaryError) {
+                console.warn(`Primary model ${primaryModel} failed. Error: ${primaryError.message}. Trying backup model ${backupModel}...`);
+                
+                try {
+                    // Try executing with backup model (gemini-1.5-flash)
+                    const response = await executeRequest(backupModel);
+                    const result = await response.json();
+                    const text = result.candidates?.[0]?.content?.parts?.[0]?.text;
+                    if (text) return text;
+                    throw new Error("No response text found in backup model");
+                } catch (backupError) {
+                    // Throw the most descriptive error
+                    throw new Error(`API Error: ${primaryError.message}`);
+                }
             }
         }
 
@@ -1300,7 +1329,7 @@
             } catch (err) {
                 console.error("Chat failure:", err);
                 document.getElementById(loadingId).remove();
-                appendChatMessage("System Alert", "សុំទោស ខ្ញុំមិនអាចភ្ជាប់ទំនាក់ទំនងជាមួយ API ដើម្បីឆ្លើយតបសំនួររបស់បងបានទេ។ សូមពិនិត្យមើលការកំណត់ API Key។", "error");
+                appendChatMessage("System Alert", `សុំទោស ខ្ញុំមិនអាចឆ្លើយតបបានទេ៖ ${err.message || err}`, "error");
             }
         }
 
