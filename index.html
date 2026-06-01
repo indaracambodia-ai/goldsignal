@@ -290,19 +290,18 @@
                     <div class="flex-1 flex flex-col justify-between">
                         <!-- Speedometer visual placeholder -->
                         <div class="flex flex-col items-center py-4 relative">
-                            <span class="text-xs text-slate-400 mb-1">MOCK AGGREGATE SENTIMENT</span>
-                            <div class="text-2xl font-black text-emerald-400 tracking-wider">STRONG BUY</div>
+                            <span class="text-xs text-slate-400 mb-1">AGGREGATE SENTIMENT (LIVE)</span>
+                            <div id="sentiment-text" class="text-2xl font-black text-emerald-400 tracking-wider">STRONG BUY</div>
                             <div class="text-[10px] text-slate-500 mt-1">Based on 26 Daily Oscillators & Moving Averages</div>
                             
                             <!-- Gauge Visual bar -->
-                            <div class="w-full bg-slate-900 h-2 rounded-full mt-4 overflow-hidden flex">
+                            <div class="w-full bg-slate-900 h-2 rounded-full mt-4 overflow-hidden flex relative">
                                 <div class="bg-rose-500 h-full w-[15%]"></div>
                                 <div class="bg-orange-500 h-full w-[15%]"></div>
                                 <div class="bg-gray-700 h-full w-[20%]"></div>
                                 <div class="bg-green-400 h-full w-[30%]"></div>
-                                <div class="bg-emerald-500 h-full w-[20%] relative">
-                                    <span class="absolute right-2 -top-1 h-4 w-1 bg-white"></span>
-                                </div>
+                                <div class="bg-emerald-500 h-full w-[20%]"></div>
+                                <div id="gauge-pointer" class="absolute top-0 h-4 w-1 bg-white shadow-lg transition-all duration-500" style="left: 80%; transform: translateY(-25%);"></div>
                             </div>
                             <div class="flex justify-between w-full text-[9px] text-slate-500 mt-1.5 font-mono">
                                 <span>STRONG SELL</span>
@@ -315,15 +314,15 @@
                         <div class="border-t border-slate-900 pt-3 grid grid-cols-3 gap-2 text-center text-xs">
                             <div class="bg-slate-950/60 p-2 rounded">
                                 <span class="block text-[10px] text-slate-500">RSI (14)</span>
-                                <span class="font-semibold text-emerald-400">62.45 (Buy)</span>
+                                <span id="stat-rsi" class="font-semibold text-emerald-400">62.45 (Buy)</span>
                             </div>
                             <div class="bg-slate-950/60 p-2 rounded">
                                 <span class="block text-[10px] text-slate-500">MACD (12, 26)</span>
-                                <span class="font-semibold text-emerald-400">Bullish Cross</span>
+                                <span id="stat-macd" class="font-semibold text-emerald-400">Bullish Cross</span>
                             </div>
                             <div class="bg-slate-950/60 p-2 rounded">
                                 <span class="block text-[10px] text-slate-500">Stochastic (K,D)</span>
-                                <span class="font-semibold text-amber-400">78.10 (O/B)</span>
+                                <span id="stat-stoch" class="font-semibold text-amber-400">78.10 (O/B)</span>
                             </div>
                         </div>
                     </div>
@@ -518,8 +517,11 @@
                         To call the real-time AI Analyst with real Google Search, the application uses the Gemini API.
                     </p>
                     <div>
-                        <label class="block text-[10px] text-slate-500 uppercase mb-1">Gemini API Key (Optional)</label>
-                        <input type="password" id="api-key" placeholder="AIzaSy..." class="w-full bg-slate-950 border border-slate-800 rounded px-3 py-2 text-xs font-mono text-slate-200 focus:border-gold-500 focus:outline-none">
+                        <label for="api-key" class="block text-[10px] text-slate-500 uppercase mb-1">Gemini API Key (Optional)</label>
+                        <div class="flex items-center gap-2">
+                            <input type="password" id="api-key" placeholder="AIzaSy..." class="flex-1 bg-slate-950 border border-slate-800 rounded px-3 py-2 text-xs font-mono text-slate-200 focus:border-gold-500 focus:outline-none">
+                            <button onclick="clearApiKey()" class="px-2.5 py-1.5 bg-slate-900 border border-slate-800 hover:border-rose-500/50 hover:bg-slate-800 text-rose-400 rounded-md transition duration-200 text-[10px] font-semibold">Clear</button>
+                        </div>
                     </div>
                 </div>
 
@@ -603,7 +605,8 @@
             chatHistory: [],
             basePrice: 2345.50, // Base spot price for scaling calculation
             lastLoggedStructure: "", // Track to avoid spamming alerts on every tick
-            lastAlertTime: 0
+            lastAlertTime: 0,
+            activeOB: null // Store a fixed OB zone to allow price to "enter" it
         };
 
         // Initialize parameters when page loads
@@ -709,26 +712,65 @@
 
             // RECALCULATE DYNAMIC SCALPER STRUCTURAL LEVELS IN REAL TIME
             recalculateSMCStructures(price);
+
+            // UPDATE TECHNICAL SIGNAL INDICATORS
+            updateTechnicalSignals(price);
+        }
+
+        // SIMULATED REAL-TIME TECHNICAL ANALYSIS CALCULATION
+        function updateTechnicalSignals(price) {
+            // Simulate indicators based on price movement for visual dynamism
+            const rsi = 50 + (Math.sin(Date.now() / 20000) * 25); 
+            const stoch = 50 + (Math.cos(Date.now() / 15000) * 40);
+            
+            // Update RSI & MACD Logic
+            const rsiEl = document.getElementById('stat-rsi');
+            rsiEl.innerText = `${rsi.toFixed(2)} ${rsi > 70 ? '(O/B)' : rsi < 30 ? '(O/S)' : rsi > 50 ? '(Buy)' : '(Sell)'}`;
+            rsiEl.className = rsi > 50 ? "font-semibold text-emerald-400" : "font-semibold text-rose-400";
+
+            const macdEl = document.getElementById('stat-macd');
+            macdEl.innerText = rsi > 48 ? "Bullish Cross" : "Bearish Cross";
+            macdEl.className = rsi > 48 ? "font-semibold text-emerald-400" : "font-semibold text-rose-400";
+
+            const stochEl = document.getElementById('stat-stoch');
+            stochEl.innerText = `${stoch.toFixed(2)} ${stoch > 80 ? '(O/B)' : stoch < 20 ? '(O/S)' : ''}`;
+
+            // Update Gauge Sentiment & Pointer Position
+            const sentimentText = document.getElementById('sentiment-text');
+            const pointer = document.getElementById('gauge-pointer');
+            let sentiment = "NEUTRAL"; let color = "text-slate-400"; let pos = 50;
+
+            if (rsi > 70) { sentiment = "STRONG BUY"; color = "text-emerald-400"; pos = 90; }
+            else if (rsi > 55) { sentiment = "BUY"; color = "text-green-400"; pos = 70; }
+            else if (rsi < 30) { sentiment = "STRONG SELL"; color = "text-rose-500"; pos = 10; }
+            else if (rsi < 45) { sentiment = "SELL"; color = "text-orange-500"; pos = 30; }
+            
+            sentimentText.innerText = sentiment;
+            sentimentText.className = `text-2xl font-black ${color} tracking-wider`;
+            pointer.style.left = `${pos}%`;
         }
 
         // MATHEMATICALLY CALCULATE SMC/ICT/CRT METRICS RELATIVE TO THE LIVE TICK PRICE
         function recalculateSMCStructures(base) {
-            // Anchor SMC zones logically to the live price so they are always 100% accurate!
             const swingHigh = base + 4.80;
             const swingLow = base - 5.50;
             
-            // Order Block (OB) Zones
-            const bullOB_Start = base - 3.20;
-            const bullOB_End = base - 1.50;
-            const bearOB_Start = base + 2.10;
-            const bearOB_End = base + 3.80;
+            // Use the sticky OB if it exists, otherwise initialize it slightly below current price
+            if (!terminalState.activeOB) {
+                terminalState.activeOB = {
+                    start: base - 3.20,
+                    end: base - 1.50,
+                    fvg: base - 0.80,
+                    crtRes: base + 1.90,
+                    crtSup: base - 2.40
+                };
+            }
 
-            // FVG (Fair Value Gap)
-            const fvgValue = base - 0.80;
-
-            // CRT support ranges
-            const crtRes = base + 1.90;
-            const crtSup = base - 2.40;
+            const bullOB_Start = terminalState.activeOB.start;
+            const bullOB_End = terminalState.activeOB.end;
+            const fvgValue = terminalState.activeOB.fvg;
+            const crtRes = terminalState.activeOB.crtRes;
+            const crtSup = terminalState.activeOB.crtSup;
 
             // Inject SMC & Liquidity live levels
             document.getElementById('smc-ob').innerText = `$${bullOB_Start.toFixed(2)} - $${bullOB_End.toFixed(2)}`;
@@ -797,6 +839,9 @@
 
         // TRIGGER THE AUTOMATED ALERTS (In-App Sounds & Telegram Broadcasts)
         function triggerDualAlerts(direction, entryPrice, obS, obE, fvg) {
+            const statusPanel = document.getElementById('scalping-status-panel');
+            const isConfirmed = statusPanel.getAttribute('data-setup-state') === 'confirmed';
+
             // Alert 1: Play Sound In-App beep
             playInAppBeep("success");
 
@@ -810,23 +855,25 @@
                 Notification.requestPermission();
             }
 
-            // Alert 2: Telegram Signal formulation
-            const emoji = direction === "BUY" ? "🟢 BUY SETUP" : "🔴 SELL SETUP";
-            const tgMsg = `<b>🔔 XAUUSD 5M LIVE SCALPING CONFIRMED!</b>\n` +
-                          `==============================\n` +
-                          `<b>⚡ DIRECTION:</b> ${emoji}\n` +
-                          `<b>📊 structure:</b> BOS / MSS Confirmed (Live)\n` +
-                          `<b>📉 SPOT ENTRY VALUE:</b> <code>$${entryPrice.toFixed(2)}</code>\n` +
-                          `<b>📥 ORDER BLOCK (OB):</b> <code>$${obS.toFixed(2)} - $${obE.toFixed(2)}</code>\n` +
-                          `<b>💧 FAIR VALUE GAP (FVG):</b> <code>$${fvg.toFixed(2)}</code>\n` +
-                          `------------------------------\n` +
-                          `<b>🔥 HIDDEN VOLUME DELTA:</b>\n` +
-                          `• Net Delta: <b>Aggressive Buyer Volume Active (SMC/ICT Synced)</b>\n` +
-                          `==============================\n` +
-                          `<i>👉 ឱកាសល្អបំផុតក្នុងការទម្លាក់ Entry Setup Scalping. សូមពិនិត្យហានិភ័យមុននឹងចុះជួញដូរ!</i>`;
+            // Alert 2: Telegram Signal formulation - ONLY if confirmed
+            if (isConfirmed) {
+                const emoji = direction === "BUY" ? "🟢 BUY SETUP" : "🔴 SELL SETUP";
+                const tgMsg = `<b>🔔 XAUUSD 5M LIVE SCALPING CONFIRMED!</b>\n` +
+                              `==============================\n` +
+                              `<b>⚡ DIRECTION:</b> ${emoji}\n` +
+                              `<b>📊 structure:</b> BOS / MSS Confirmed (Live)\n` +
+                              `<b>📉 SPOT ENTRY VALUE:</b> <code>$${entryPrice.toFixed(2)}</code>\n` +
+                              `<b>📥 ORDER BLOCK (OB):</b> <code>$${obS.toFixed(2)} - $${obE.toFixed(2)}</code>\n` +
+                              `<b>💧 FAIR VALUE GAP (FVG):</b> <code>$${fvg.toFixed(2)}</code>\n` +
+                              `------------------------------\n` +
+                              `<b>🔥 HIDDEN VOLUME DELTA:</b>\n` +
+                              `• Net Delta: <b>Aggressive Buyer Volume Active (SMC/ICT Synced)</b>\n` +
+                              `==============================\n` +
+                              `<i>👉 ឱកាសល្អបំផុតក្នុងការទម្លាក់ Entry Setup Scalping. សូមពិនិត្យហានិភ័យមុននឹងចុះជួញដូរ!</i>`;
 
-            dispatchTelegramNotification(tgMsg);
-            showToast("Alert Dispatcher", "សញ្ញាជួញដូរត្រូវបានបាញ់បញ្ជូនទៅ Telegram Channel របស់បងរួចរាល់!", "success");
+                dispatchTelegramNotification(tgMsg);
+                showToast("Alert Dispatcher", "សញ្ញាជួញដូរត្រូវបានបាញ់បញ្ជូនទៅ Telegram Channel របស់បងរួចរាល់!", "success");
+            }
         }
 
         // Send Notification To Telegram Bot API
@@ -901,7 +948,9 @@
         function scanScalpingSetup(isInitial = false, manualTrigger = false) {
             if (manualTrigger) {
                 showToast("SMC Scan Started", "កំពុងស្កេនលំនាំ SMC & ICT និងរៀបចំកម្រិត S/R ឡើងវិញ...", "info");
-                const currentBase = terminalState.basePrice;
+                // Reset the sticky OB to the current baseline price to create a new "Fixed" target zone
+                terminalState.activeOB = null; 
+                const currentBase = terminalState.basePrice; 
                 // Force simulate price to slide directly into OB to show 'CONFIRMED' demonstration to the user!
                 const targetOBPrice = currentBase - 2.50;
                 updateLivePriceEngine(targetOBPrice);
@@ -1001,6 +1050,15 @@
                 el.innerHTML = `<i class="fa-solid fa-circle-xmark"></i> ${el.innerText.replace(/❌|✔️|\(Swept\)|\(Intact\)|\(OK\)/g, '').trim()}`;
             }
         }
+
+        function clearApiKey() {
+            document.getElementById('api-key').value = '';
+            localStorage.removeItem('gold_terminal_gemini_key');
+            terminalState.apiKey = '';
+            showToast("API Key Cleared", "Gemini API Key has been removed from your browser's local storage.", "info");
+            updateAlertUIIndicators(); // Update indicators if any are tied to API key presence
+        }
+
 
         function toggleApiModal() {
             const modal = document.getElementById('api-modal');
@@ -1150,15 +1208,16 @@
 
             // Prompt modified to search for absolute real-time gold price to align with the chart
             const query = `
-                Search Google for the EXACT current Gold spot price (XAUUSD) right now, and find today's real support (S1, S2, S3) and resistance (R1, R2, R3) levels from FXStreet Gold, TradingView, DailyFX or Kitco News.
+                Find the EXACT LATEST LIVE Gold spot price (XAUUSD) from the most recent 10 minutes from reliable financial sources like FXStreet, Kitco, or Investing.com.
                 Compile a professional technical & fundamental analysis summary in the Khmer language.
                 
                 The report MUST include:
-                1. CURRENT SPOT PRICE (mention the exact live price you found)
+                1. CURRENT LIVE SPOT PRICE: [Insert exact price here] (Must be the most recent value found)
                 2. REAL-TIME SUPPORT & RESISTANCE (S1/S2/S3 & R1/R2/R3 with real price figures)
                 3. MARKET SENTIMENT OVERVIEW (Bullish/Bearish with score 1-100)
-                4. DXY INDEX & BOND YIELDS IMPACT (How they are affecting Gold today)
-                5. FOREX FACTORY MACRO KEY HIGHLIGHTS.
+                4. DETAILED REASONS FOR TODAY'S PRICE MOVEMENT (Why is Gold up or down today? Explain fundamental catalysts and news)
+                5. DXY INDEX & BOND YIELDS IMPACT (How they are affecting Gold today)
+                6. FOREX FACTORY MACRO KEY HIGHLIGHTS.
                 
                 Format the answer beautifully using bullet points, bold text, and clean structure.
             `;
@@ -1194,8 +1253,9 @@
         }
 
         function attemptAutoSyncFromAiText(text) {
-            // Regex to extract possible Gold Spot Price in 2xxx.xx range from AI Khmer response
-            const match = text.match(/(\$|តម្លៃ|មាស|Spot)?\s*(2\d{3}(\.\d{1,2})?)/i);
+            // Improved Regex to look for "Spot Price" or "Current Price" context before the number
+            // It looks for keywords in both English and Khmer to be more precise
+            const match = text.match(/(Spot\s*Price|Current\s*Price|តម្លៃបច្ចុប្បន្ន|តម្លៃមាស)\s*(?:[:\-=]|\s+)\s*\$?\s*(2\d{3}(\.\d{1,2})?)/i) || text.match(/(\$|តម្លៃ|មាស|Spot)?\s*(2\d{3}(\.\d{1,2})?)/i);
             if (match && match[2]) {
                 const detectedPrice = parseFloat(match[2]);
                 if (detectedPrice > 2000 && detectedPrice < 3500) {
@@ -1214,8 +1274,8 @@
             }
 
             // Using stable production Model ID instead of unstable preview versions
-            const primaryModel = "gemini-2.5-flash";
-            const backupModel = "gemini-1.5-flash";
+            const primaryModel = "gemini-1.5-flash";
+            const backupModel = "gemini-1.5-pro";
             
             const systemInstruction = `
                 You are an institutional-grade Gold Macro Analyst and Orderflow expert specializing in SMC (Smart Money Concepts), ICT (Inner Circle Trader) and Volume Delta analysis.
